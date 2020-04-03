@@ -5,14 +5,13 @@ library(meta)
 library(metafor)
 
 data_glu<-read_excel("data_glutamate.xlsx")
-######random and fixed effects meta-analysis with between study factor, testing for effect of medication status
+######random and fixed effects meta-analysis with between study factor, including test for effect of medication status
 resul_by_subgroup<-data_glu%>%
   metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data = ., sm="SMD", method.smd = "Cohen", byvar=medication_status)
-resul_by_subgroup$zval.random.w
-resul_by_subgroup$pval.random.w
 
-resul_by_subgroup$zval.fixed.w
-resul_by_subgroup$pval.fixed.w
+#for info on I squared
+#https://wiki.joannabriggs.org/display/MANUAL/3.3.10.2+Quantification+of+the+statistical+heterogeneity%3A+I+squared
+
 #create pdf
 pdf("Fig1_forest_subgroup_med.pdf", width=12, height=12) 
 #create plot
@@ -28,9 +27,13 @@ cvar_ratio<-data_glu%>%
 #calcualte random effects meta-analysis with between study factor medication status
 resul_cvar_ratio<-rma.uni(cvar_ratio, measure = "CVR", slab=data_glu$studylab, mods = ~ medication_status)
 
+summary(resul_cvar_ratio)
+
 resul_cvar_ratio<-rma.uni(cvar_ratio, measure = "CVR", slab=data_glu$studylab)
 
 summary(resul_cvar_ratio)
+
+
 #creating Figure 2
 pdf("Fig2_forestCVR_subgroup_med.pdf", width=10, height=6) 
 # 2. Create a plot
@@ -55,8 +58,6 @@ text(forest_plot[["xlim"]][1], -1.8, pos=4, cex=0.75, col = "darkgrey", bquote(p
                                                                                      ", p = ", .(formatC(resul_cvar_ratio$QEp, digits=2, format="f")), "; ", I^2, " = ",
                                                                                      .(formatC(resul_cvar_ratio$I2, digits=1, format="f")), "%)")))
 
-rev(resul_cvar_ratio$yi[1:13])
-m[nrow(m):1,]
 
 
 ### add text for the subgroups
@@ -96,6 +97,7 @@ text(forest_plot[["xlim"]][1], 5, pos=4, cex=0.70, col = "darkgrey",bquote(paste
 dev.off() 
 
 
+
 ###Testing for seperate subgroups depending on reported medication status
 
 data_glu_sep_med_group<-read_excel("data_glutamate_sep_med_group.xlsx")
@@ -132,7 +134,7 @@ forest(resul_by_subgroup, col.square = "lightblue", col.diamond = "darkblue", co
 dev.off() 
 
 
-
+##analysis by metabolite extraxcted
 resul_by_subgroup<-data_glu%>%
   metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data=., sm="SMD", method.smd = "Cohen", byvar=metabolite)
 resul_by_subgroup
@@ -145,34 +147,180 @@ forest(resul_by_subgroup, col.square = "lightblue", col.diamond = "darkblue", co
 dev.off() 
 
 
-####for CVR
-resul_cvar_ratio
-data_glu%>%
-  escalc("CVR", n1i=SCZn, m1i=SCZmean, sd1i=SCZsd, n2i=HCn, m2i=HCmean, sd2i=HCsd, data=., slab=studylab, append = T)
+#Egger's regression test (regtest() function),
+resul<-data_glu%>%
+  metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data = ., sm="SMD", method.smd = "Cohen")
 
-resul_cvar_ratio<-rma.uni(cvar_ratio, measure = "CVR", slab=data_glu$studylab)
+metabias(resul, method.bias ='linreg')
 
-res <- rma(resul_cvar_ratio$yi, resul_cvar_ratio$vi, mods = ~ resul$age)
-res
-
-metabias(resul_cvar_ratio, method.bias ='linreg')
-funnel(resul_cvar_ratio)
 regtest(x=resul$TE, sei=resul$seTE, model="lm")
+
+#funnelplot
+pdf("SFig5rplot_funnel.pdf", width=12, height=12) 
+funnel(resul)
+dev.off() 
+
+
+#Testing effects of 'file drawer studies' 
+
+trimfill(resul)
+
+
+##funnnel plot with imputation
+pdf("SFig6rplot_funnel_trimfill.pdf", width=12, height=12) 
+funnel(trimfill(resul))
+dev.off() 
+
+##metaregression
+
 metareg(resul, year)
+pdf("SFig7rplot_bubble_pubyear.pdf", width=12, height=12) 
 bubble(metareg(resul, year),xlim = c(2010,2020), ylim=c(-0.9,1), bg = "transparent", ylab = "effect size", xlab="year of publication", cex.lab=1.5)
+dev.off() 
 
-metareg(resul_cvar_ratio, age)
-bubble(metareg(resul_cvar_ratio, age), xlim = c(20,45), ylim=c(-0.7,1), bg = "transparent", ylab = "effect size", xlab="mean age", cex.lab=1.5)
+metareg(resul, age)
+
+pdf("SFig8rplot_bubble_age.pdf", width=12, height=12) 
+bubble(metareg(resul, age), xlim = c(20,45), ylim=c(-0.7,1), bg = "transparent", ylab = "effect size", xlab="mean age", cex.lab=1.5)
+dev.off() 
 
 
+#Outlier detection
+#function from https://bookdown.org/MathiasHarrer/Doing_Meta_Analysis_in_R/detecting-outliers-influential-cases.html
+spot.outliers.random<-function(data){
+  data<-data
+  Author<-data$studlab
+  lowerci<-data$lower
+  upperci<-data$upper
+  m.outliers<-data.frame(Author,lowerci,upperci)
+  te.lower<-data$lower.random
+  te.upper<-data$upper.random
+  dplyr::filter(m.outliers,upperci < te.lower)
+  dplyr::filter(m.outliers,lowerci > te.upper)
+}
+#Outlier Testing for effect in medication naive patients
+resul_med_naive<-data_glu%>%filter(medication_status=="naïve")%>%
+  metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data = ., sm="SMD", method.smd = "Cohen")
+forest(resul_med_naive)
+
+spot.outliers.random(resul_med_naive)
+
+
+
+###meta analysis of variability ratio
+
+var_ratio<-data_glu%>%
+  escalc("VR", n1i=SCZn, m1i=SCZmean, sd1i=SCZsd, n2i=HCn, m2i=HCmean, sd2i=HCsd, data=., slab=studylab, append = T)
+
+sum_var_ratio<-summary(var_ratio)
+
+resul_var_ratio<-rma.uni(var_ratio, measure = "VR", slab=data_glu$studylab)
+##double check: calculation of VR manually
+log(lit_Glut$SCZsd[lit_Glut$include=="yes"]/lit_Glut$HCsd[lit_Glut$include=="yes"])+((1/((2*lit_Glut$SCZn[lit_Glut$include=="yes"])-1))-(1/((2*lit_Glut$HCn[lit_Glut$include=="yes"])-1)))
+
+
+pdf("SFig9rplot_forestVR.pdf", width=10, height=6) 
+# 2. Create a plot
+forest_plot<-forest.rma(resul_var_ratio, slab=data_glu$studylab, showweights=TRUE, top=2)
+text(forest_plot[["xlim"]][1],length(forest_plot[["rows"]])+2, "Study", pos=4)
+text(forest_plot[["xlim"]][2]-1.5,length(forest_plot[["rows"]])+2,"Weight", pos=2)
+text(forest_plot[["xlim"]][2],length(forest_plot[["rows"]])+2, "Log VR [95% CI]", pos=2)
+text(-1.9,-1.7,"greater variability in controls")
+text(1.9,-1.7,"greater variability in patients")
+### add text with Q-value, dfs, p-value, and I^2 statistic
+text(forest_plot[["xlim"]][1]+1, -1, pos=4, cex=1, bquote(paste("(Q = ",
+                                                                .(formatC(resul_var_ratio$QE, digits=2, format="f")), ", df = ", .(resul_var_ratio$k - resul_var_ratio$p),
+                                                                ", p = ", .(formatC(resul_var_ratio$QEp, digits=2, format="f")), "; ", I^2, " = ",
+                                                                .(formatC(resul_var_ratio$I2, digits=1, format="f")), "%)")))
+# Close the pdf file
+dev.off() 
+
+###meta analysis of cvariability ratio
+
+##
 cvar_ratio<-data_glu%>%
   escalc("CVR", n1i=SCZn, m1i=SCZmean, sd1i=SCZsd, n2i=HCn, m2i=HCmean, sd2i=HCsd, data=., slab=studylab, append = T)
 
-#calcualte random effects meta-analysis with between study factor age and year
-resul_cvar_ratio<-rma.uni(cvar_ratio, measure = "CVR", slab=data_glu$studylab, mods = ~ year)
+sum_cvar_ratio<-summary(cvar_ratio)
 
-resul_cvar_ratio<-rma.uni(cvar_ratio, measure = "CVR", slab=data_glu$studylab, mods = ~ age)
+resul_cvar_ratio<-rma.uni(cvar_ratio, measure = "CVR", slab=data_glu$studylab)
 
-resul_cvar_ratio<-rma(cvar_ratio, measure = "CVR", slab=data_glu$studylab, mods = ~ age, intercept = F)
-#http://www.metafor-project.org/doku.php/tips:models_with_or_without_intercept
+pdf("SFig10rplot_forestCVR.pdf", width=10, height=6) 
+# 2. Create a plot
+
+resul_cvar_ratio<-rma.uni(cvar_ratio, measure = "CVR", slab=data_glu$studylab)
+forest_plot<-forest.rma(resul_cvar_ratio, slab=data_glu$studylab, showweights=TRUE, top=2)
+text(forest_plot[["xlim"]][1],length(forest_plot[["rows"]])+2, "Study", pos=4)
+text(forest_plot[["xlim"]][2]-2,length(forest_plot[["rows"]])+2,"Weight", pos=2)
+text(forest_plot[["xlim"]][2],length(forest_plot[["rows"]])+2, "Log CVR [95% CI]", pos=2)
+text(-1.9,-1.7,"greater variability in controls")
+text(1.9,-1.7,"greater variability in patients")
+### add text with Q-value, dfs, p-value, and I^2 statistic
+text(forest_plot[["xlim"]][1]+1, -1, pos=4, cex=1, bquote(paste("(Q = ",
+                                                                .(formatC(resul_cvar_ratio$QE, digits=2, format="f")), ", df = ", .(resul_cvar_ratio$k - resul_cvar_ratio$p),
+                                                                ", p = ", .(formatC(resul_cvar_ratio$QEp, digits=2, format="f")), "; ", I^2, " = ",
+                                                                .(formatC(resul_cvar_ratio$I2, digits=1, format="f")), "%)")))
+# Close the pdf file
+dev.off() 
+
+
+###moderator subgroup analysis var ratio
+resul_var_ratio<-rma.uni(var_ratio, measure = "VR", slab=data_glu$studylab, mods = ~ medication_status)
+forest.rma(resul_var_ratio, slab=data_glu$studylab, showweights=TRUE, top=2)
+resul_var_ratio<-rma.uni(var_ratio, measure = "VR", slab=data_glu$studylab)
+
+pdf("SFig11rplot_forestVR_subgroup.pdf", width=10, height=6) 
+# 2. Create a plot
+forest_plot<-forest.rma(resul_var_ratio, xlim=c(-8, 6),ylim=c(-1, 29),
+                        order=order(data_glu$medication_status, decreasing = T), cex=1,rows=c(1,18:16,25:23,11:6), psize=1,top=2, addfit = T)
+
+text(forest_plot[["xlim"]][1],length(forest_plot[["rows"]])+16, "Study", pos=4)
+text(forest_plot[["xlim"]][2],length(forest_plot[["rows"]])+16, "Log VR [95% CI]", pos=2)
+text(-2,-1.5, cex=0.7, "greater variability in controls")
+text(2,-1.5, cex=0.7, "greater variability in patients")
+
+### add text with Q-value, dfs, p-value, and I^2 statistic
+text(forest_plot[["xlim"]][1], -1.8, pos=4, cex=0.75, col = "darkgrey", bquote(paste("overall (Q = ",
+                                                                                     .(formatC(resul_var_ratio$QE, digits=2, format="f")), ", df = ", .(resul_var_ratio$k - resul_var_ratio$p),
+                                                                                     ", p = ", .(formatC(resul_var_ratio$QEp, digits=2, format="f")), "; ", I^2, " = ",
+                                                                                     .(formatC(resul_var_ratio$I2, digits=1, format="f")), "%)")))
+
+
+### add text for the subgroups
+text(forest_plot[["xlim"]][1], c(26.2,19.2,12.2,2.2), pos=4, c("medicated and unmedicated",
+                                                               "naïve",
+                                                               "medicated", "unclear"), col = "darkgrey",cex=1.1)
+
+
+### fit random-effects model in the subgroups
+
+res.um<-rma.uni(var_ratio, measure = "VR", slab=data_glu$studylab, subset=(medication_status=="medicated and unmedicated") )
+res.n<-rma.uni(var_ratio, measure = "VR", slab=data_glu$studylab, subset=(medication_status=="naïve") )
+res.m<-rma.uni(var_ratio, measure = "VR", slab=data_glu$studylab, subset=(medication_status=="medicated") )
+res.u<-rma.uni(var_ratio, measure = "VR", slab=data_glu$studylab, subset=(medication_status=="unclear") )
+
+### add summary polygons for the subgroups
+addpoly(res.um, row=22, cex=1, mlab="")
+addpoly(res.n, row= 15, cex=1, mlab="")
+addpoly(res.m, row= 5, cex=1, mlab="")
+#addpoly(res.u, row= 0, cex=1, mlab="")
+
+
+### add text with Q-value, dfs, p-value, and I^2 statistic for subgroups
+text(forest_plot[["xlim"]][1], 22, pos=4, cex=0.70, col = "darkgrey", bquote(paste("RE model for subgroup (Q = ",
+                                                                                   .(formatC(res.um$QE, digits=2, format="f")), ", df = ", .(res.um$k - res.um$p),
+                                                                                   ", p = ", .(formatC(res.um$QEp, digits=2, format="f")), "; ", I^2, " = ",
+                                                                                   .(formatC(res.um$I2, digits=1, format="f")), "%)")))
+text(forest_plot[["xlim"]][1], 15, pos=4, cex=0.70,col = "darkgrey", bquote(paste("RE model for subgroup (Q = ",
+                                                                                  .(formatC(res.n$QE, digits=2, format="f")), ", df = ", .(res.n$k - res.n$p),
+                                                                                  ", p = ", .(formatC(res.n$QEp, digits=2, format="f")), "; ", I^2, " = ",
+                                                                                  .(formatC(res.n$I2, digits=1, format="f")), "%)")))
+text(forest_plot[["xlim"]][1], 5, pos=4, cex=0.70, col = "darkgrey",bquote(paste("RE model for subgroup (Q = ",
+                                                                                 .(formatC(res.m$QE, digits=2, format="f")), ", df = ", .(res.m$k - res.m$p),
+                                                                                 ", p = ", .(formatC(res.m$QEp, digits=2, format="f")), "; ", I^2, " = ",
+                                                                                 .(formatC(res.m$I2, digits=1, format="f")), "%)")))
+
+
+# Close the pdf file
+dev.off() 
 
