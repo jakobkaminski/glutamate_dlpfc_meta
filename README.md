@@ -1,2 +1,2 @@
-# glutamate_dlpfc_meta
-this is the code for creating the plots in the publication xyz
+# Glutamate in dorsolateral prefrontal cortex
+This is the code for creating the plots in the publication xyz
