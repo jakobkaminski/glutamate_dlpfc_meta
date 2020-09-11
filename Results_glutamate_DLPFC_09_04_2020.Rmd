@@ -1,0 +1,154 @@
+---
+title: "Results glutamate left DLPFC"
+author: "Jakob A. Kaminski"
+date: "8 4 2020"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# numbers >= 10^5 will be denoted in scientific notation,
+## and rounded to 2 digits
+options(scipen = 1, digits = 2)
+f_pvalue = function(p.value, symbol = "="){
+  p.value <- round(p.value, digits = 3)
+  if (p.value == 0) {
+    return("p < .001")
+  } else {
+    return(paste0("p", symbol, round(p.value, digits = 3)))
+  }
+}
+
+
+#load all necessary packages
+library(readxl)
+library(tidyverse)
+library(meta)
+library(metafor)
+
+```
+
+This file is created with RMarkdown and provides a reproducible results section.
+
+# Meta-analysis
+
+```{r meta, include=F}
+#load data
+data_glu<-read_excel("data_glutamate_09_04_2020.xlsx")
+
+######random and fixed effects meta-analysis with between study factor, including test for effect of medication status
+##control order
+data_glu$medication_status<-factor(data_glu$medication_status, levels = c("medicated and unmedicated", "naïve", "medicated", "unclear"))
+
+resul<-data_glu%>%
+  metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data = ., sm="SMD", method.smd = "Cohen")
+
+#for info on I squared
+#https://wiki.joannabriggs.org/display/MANUAL/3.3.10.2+Quantification+of+the+statistical+heterogeneity%3A+I+squared
+
+
+
+resul_metabias<-regtest(x=resul$TE, sei=resul$seTE, model="lm")
+
+resul_trimfill<-trimfill(resul)
+
+
+```
+
+The random effects model revealed no difference between patients and controls in mean estimates of glutamate metabolites (d=``r resul$TE.random``[``r resul$lower.random``; ``r resul$upper.random``], z=``r resul$zval.random``, p=``r resul$pval.random``, see Figure 1). The test for heterogeneity between studies shows a moderate to large amount of heterogeneity ($\tau^2$=``r resul$tau^2``, $I^2$=``r resul$I2*100``%) according to established standards.49 Formal testing for bias using funnel plot asymmetry according to Egger et al.50 revealed no significant source of bias (t=``r  resul_metabias$zval``, p=``r resul_metabias$pval``, see eFigure 5). Trim and fill method for bias adjustment suggests five missing studies (eFigure 6). Filling in those studies, showed a slightly lower estimate in patients, but no significant overall difference in DLPFC glutamate ((d=``r resul_trimfill$TE.random``[``r resul_trimfill$lower.random``; ``r resul_trimfill$upper.random``], z=``r resul_trimfill$zval.random``, p=``r resul_trimfill$pval.random``).
+
+
+# Subgroup analysis
+```{r pressure, include=FALSE}
+resul_by_subgroup<-data_glu%>%
+  metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data = ., sm="SMD", method.smd = "Cohen", byvar=medication_status)
+
+```
+
+As there were overall more than k=10 studies included and more than k=2 studies per subgroup, we conducted subsequent subgroup analysis.32 We found a significant between-group effect for medication status (Q=``r resul_by_subgroup$Q.b.random``, ``r f_pvalue(resul_by_subgroup$pval.Q.b.random)``). This effect was due to a significant increased glutamate level in antipsychotic naïve patients (d=``r resul_by_subgroup$TE.random.w[2]``[``r resul_by_subgroup$lower.random.w[2]``; ``r resul_by_subgroup$upper.random.w[2]``], z=``r resul_by_subgroup$zval.random.w[2]``, ``r f_pvalue(resul_by_subgroup$pval.random.w[2])`` see Figure 1). Fixed-effects results showed the same point estimate of the effect size (d=``r resul_by_subgroup$TE.fixed.w[2]``[``r resul_by_subgroup$lower.fixed.w[2]``; ``r resul_by_subgroup$upper.fixed.w[2]``], z=``r resul_by_subgroup$zval.fixed.w[2]``, ``r f_pvalue(resul_by_subgroup$pval.fixed.w[2])`` see Figure 1). Outlier detection showed no extreme data-point for this effect. 
+
+```{r sepmedumed, include=FALSE}
+data_glu_sep_med_group<-read_excel("data_glutamate_sep_med_group_09_04_2020.xlsx")
+data_glu_sep_med_group$medication_status<-factor(data_glu_sep_med_group$medication_status, levels = c("unmedicated", "naïve", "medicated", "unclear"))
+
+resul_by_subgroup<-data_glu_sep_med_group%>%
+  metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data = ., sm="SMD", method.smd = "Cohen", byvar=medication_status)
+```
+
+
+As described in the methods section, two studies reported medicated and unmedicated subjects separately. Therefore, we repeated subgroup analysis for medication status with separation of those studies. In this analysis, we also find a significant between-group effect (Q=``r resul_by_subgroup$Q.b.random``, p=``r resul_by_subgroup$pval.Q.b.random``, eFigure2). The random and fixed-effects model showed the identical effect with increased glutamate levels in medication naïve patients compared to healthy controls. Concerning the separated studies on unmedicated patients we here find no differences in glutamate levels. 
+```{r patientgr, include=FALSE}
+resul_by_subgroup<-data_glu%>%
+  metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data = ., sm="SMD", method.smd = "Cohen", byvar=`patient group`)
+resul_by_subgroup
+```
+Analysis of disease status showed no significant effect for studies comparing FEP vs. chronic patients (Q=``r resul_by_subgroup$Q.b.random``, p=``r resul_by_subgroup$pval.Q.b.random``, see eFigure 3).
+```{r metabol, include=FALSE}
+resul_by_subgroup<-data_glu%>%
+  metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data=., sm="SMD", method.smd = "Cohen", byvar=metabolite)
+resul_by_subgroup
+
+```
+Analysis of results from different metabolite estimates (Glx vs. Glutamate) revealed no effect of subgroup (Q=``r resul_by_subgroup$Q.b.random``, p=``r resul_by_subgroup$pval.Q.b.random``, see eFigure 4).
+
+
+# Meta-Regression
+
+```{r metareg, include=F}
+resul<-data_glu%>%
+  metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data = ., sm="SMD", method.smd = "Cohen")
+resul_metareg_y<-metareg(resul, year)
+resul_metareg_a<-metareg(resul, age)
+
+
+```
+
+To control for possible further sources of variance, we conducted random-effects meta-regression. Publication year showed no significant moderating effect (QM=``r resul_metareg_y$QM``, p=``r resul_metareg_y$pval[1]``, see eFigure 7). Age of the investigated subjects did also show no significant moderating effect QM=``r resul_metareg_a$QM``, p=``r resul_metareg_a$pval[1]`` see eFigure 8).
+
+# Meta-analysis of variance ratio
+
+```{r meta_vr_cvr, include=F}
+cvar_ratio<-data_glu%>%
+  escalc("CVR", n1i=SCZn, m1i=SCZmean, sd1i=SCZsd, n2i=HCn, m2i=HCmean, sd2i=HCsd, data=., slab=studylab, append = T)
+
+resul_cvar_ratio<-rma.uni(cvar_ratio, measure = "CVR", slab=data_glu$studylab)
+
+var_ratio<-data_glu%>%
+  escalc("VR", n1i=SCZn, m1i=SCZmean, sd1i=SCZsd, n2i=HCn, m2i=HCmean, sd2i=HCsd, data=., slab=studylab, append = T)
+
+resul_var_ratio<-rma.uni(var_ratio, measure = "VR", slab=data_glu$studylab)
+
+```
+
+Taking possible effects of mean differences into account, we calculated coefficient of variation ratio. The adjusted measure shows no significant difference (logCVR=``r resul_cvar_ratio$beta[1]`` [``r resul_cvar_ratio$ci.lb``;``r resul_cvar_ratio$ci.ub``]; z=``r resul_cvar_ratio$zval``; p=``r resul_cvar_ratio$pval``, see Figure 2) across all studies. The calculation of a random-effects model for differences in variability ratio also revealed no significant effect in patients as compared to controls (logVR=``r resul_var_ratio$beta[1]`` [``r resul_var_ratio$ci.lb``;``r resul_var_ratio$ci.ub``]; z=``r resul_var_ratio$zval``; p=``r resul_var_ratio$pval``, see eFigure 9). 
+
+```{r meta_cvr_sub, include=F}
+cvar_ratio<-data_glu%>%
+  escalc("CVR", n1i=SCZn, m1i=SCZmean, sd1i=SCZsd, n2i=HCn, m2i=HCmean, sd2i=HCsd, data=., slab=studylab, append = T)
+
+resul_cvar_ratio<-rma.uni(cvar_ratio, measure = "CVR", slab=data_glu$studylab, mods = ~ medication_status)
+
+
+res.n<-rma.uni(cvar_ratio, measure = "CVR", slab=data_glu$studylab, subset=(medication_status=="naïve") )
+res.m<-rma.uni(cvar_ratio, measure = "CVR", slab=data_glu$studylab, subset=(medication_status=="medicated") )
+
+```
+
+Because we found a moderating effect of medication status in mean difference meta-analysis we repeated meta-analysis of CVR and VR with medication status as moderator variable. We found a moderating effect of medication status (Q=``r resul_cvar_ratio$QM``, ``r f_pvalue(resul_cvar_ratio$QMp)``, see Figure 2) due to lower CVR in the subgroup of studies with medication naïve patients as compared to controls (logCVR=``r res.n$beta[1]``; [``r res.n$ci.lb``;``r res.n$ci.ub``]; z=``r res.n$zval``; ``r f_pvalue(res.n$pval)``). In the group of studies with medicated patients there was an increase in CVR (logCVR=``r res.m$beta[1]``; [``r res.m$ci.lb``;``r res.m$ci.ub``]; z=``r res.m$zval``; ``r f_pvalue(res.m$pval)``).  
+
+```{r meta_vr_sub, include=F}
+var_ratio<-data_glu%>%
+  escalc("VR", n1i=SCZn, m1i=SCZmean, sd1i=SCZsd, n2i=HCn, m2i=HCmean, sd2i=HCsd, data=., slab=studylab, append = T)
+
+resul_var_ratio<-rma.uni(var_ratio, measure = "VR", slab=data_glu$studylab, mods = ~medication_status)
+
+res.m<-rma.uni(var_ratio, measure = "VR", slab=data_glu$studylab, subset=(medication_status=="medicated") )
+
+
+```
+
+We found a significant moderating effect of medication status on VR (Q=``r resul_var_ratio$QM``, ``r f_pvalue(resul_var_ratio$QMp)``, eFigure 11) i.e. we found higher VR in the subgroup of studies with medicated patients as compared to controls (logVR=``r res.m$beta[1]``; [``r res.m$ci.lb``;``r res.m$ci.ub``]; z=``r res.m$zval``; ``r f_pvalue(res.m$pval)``).
+We additionally tested for possible effects of age and publication year on CVR and found no association (see Supplement).
+
+

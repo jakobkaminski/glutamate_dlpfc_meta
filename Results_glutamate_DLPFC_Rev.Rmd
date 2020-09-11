@@ -1,0 +1,308 @@
+---
+title: "Results from Revision of article lutamate in dorsolateral prefrontal cortex in patients with schizophrenia: A meta- analysis of 1-HMRS studies."
+author: "Jakob A. Kaminski"
+date: "20 5 2020"
+output: word_document
+---
+
+This R Markdown created document provides reproducible results for an analysis demanded by a reviewer.
+
+In the study from Smesny et al. the authors report values from several voxels. Two voxels comprised dorsolateral prefrontal cortex. Voxel four called frontal/prefrontal cortex is located comparably anterior, however, there was quite a high amount of assigned cortex to it (78%). An adjecent voxel no. 8 that is called dosolateral prefrontal cortex in the paper had less cortical content (26%). Given our focus on functional markers comprising gray matter. We choose this voxel due to the higher cortical mass included. Nonetheles we reran the analysis including the other voxel, as a sensitivity analysis. Comprising voxel 8 in the analysis yields similar results. and here present the results section with voxel no.8 for Smesny et al.
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# numbers >= 10^5 will be denoted in scientific notation,
+## and rounded to 2 digits
+options(scipen = 1, digits = 2)
+f_pvalue = function(p.value, symbol = "="){
+  if (p.value <= 0.001) {
+    return("p < .001")
+  } else {
+    return(paste0("p", symbol, round(p.value, digits = 3)))
+  }
+}
+
+
+#load all necessary packages
+library(readxl)
+library(tidyverse)
+library(meta)
+library(metafor)
+
+```
+
+
+
+# Meta-analysis with voxel no.8 from Smesny et al
+
+```{r meta, include=F}
+#load data
+data_glu<-read_excel("data_glutamate_09_04_2020.xlsx")
+ 
+#according to Reviewer #2 Smesny et al. other voxel 8 instead of 4
+
+data_glu[data_glu$Author=="Smesny",]$HCmean<-8.517
+data_glu[data_glu$Author=="Smesny",]$HCsd<-1.072
+data_glu[data_glu$Author=="Smesny",]$SCZmean<-9.082
+data_glu[data_glu$Author=="Smesny",]$SCZsd<-0.682
+
+
+
+######random and fixed effects meta-analysis with between study factor, including test for effect of medication status
+##control order
+data_glu$medication_status<-factor(data_glu$medication_status, levels = c("medicated and unmedicated", "naïve", "medicated", "unclear"))
+
+resul<-data_glu%>%
+  metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data = ., sm="SMD", method.smd = "Cohen")
+
+#for info on I squared
+#https://wiki.joannabriggs.org/display/MANUAL/3.3.10.2+Quantification+of+the+statistical+heterogeneity%3A+I+squared
+
+
+
+resul_metabias<-regtest(x=resul$TE, sei=resul$seTE, model="lm")
+
+resul_trimfill<-trimfill(resul)
+
+
+```
+
+The random effects model revealed no difference between patients and controls in mean estimates of glutamate metabolites (d=``r resul$TE.random``[``r resul$lower.random``; ``r resul$upper.random``], z=``r resul$zval.random``, p=``r resul$pval.random``).
+
+# Subgroup analysis
+```{r pressure, include=FALSE}
+resul_by_subgroup<-data_glu%>%
+  metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data = ., sm="SMD", method.smd = "Cohen", byvar=medication_status)
+
+```
+
+We again found a significant between-group effect for medication status (Q=``r resul_by_subgroup$Q.b.random``, ``r f_pvalue(resul_by_subgroup$pval.Q.b.random)``). This effect was due to significantly higher glutamate level in antipsychotic naïve patients (d=``r resul_by_subgroup$TE.random.w[2]``[``r resul_by_subgroup$lower.random.w[2]``; ``r resul_by_subgroup$upper.random.w[2]``], z=``r resul_by_subgroup$zval.random.w[2]``, ``r f_pvalue(resul_by_subgroup$pval.random.w[2])``).
+
+```{r sepmedumed, include=FALSE}
+data_glu_sep_med_group<-read_excel("data_glutamate_sep_med_group_09_04_2020.xlsx")
+
+
+##accordig to Reviewer #2 other voxel
+
+data_glu_sep_med_group[data_glu_sep_med_group$Author=="Smesny",]$HCmean<-8.517
+data_glu_sep_med_group[data_glu_sep_med_group$Author=="Smesny",]$HCsd<-1.072
+data_glu_sep_med_group[data_glu_sep_med_group$Author=="Smesny",]$SCZmean<-9.082
+data_glu_sep_med_group[data_glu_sep_med_group$Author=="Smesny",]$SCZsd<-0.682
+
+
+data_glu_sep_med_group$medication_status<-factor(data_glu_sep_med_group$medication_status, levels = c("unmedicated", "naïve", "medicated", "unclear"))
+
+resul_by_subgroup<-data_glu_sep_med_group%>%
+  metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data = ., sm="SMD", method.smd = "Cohen", byvar=medication_status)
+```
+
+As described in the methods section, two studies reported medicated and unmedicated subjects separately. Therefore, we repeated subgroup analysis for medication status with separation of those studies. In this analysis, we also find a non-significant between-group effect (Q=``r resul_by_subgroup$Q.b.random``, p=``r resul_by_subgroup$pval.Q.b.random``). The fixed effects model shows a significat effect (Q=``r resul_by_subgroup$Q.b.fixed``, p=``r resul_by_subgroup$pval.Q.b.fixed``) with higher glutamate levels in medication naïve patients compared to healthy controls (d=``r resul_by_subgroup$TE.fixed.w[2]``[``r resul_by_subgroup$lower.fixed.w[2]``; ``r resul_by_subgroup$upper.fixed.w[2]``], z=``r resul_by_subgroup$zval.fixed.w[2]``, ``r f_pvalue(resul_by_subgroup$pval.fixed.w[2])``). Concerning the separated studies on unmedicated patients we here find no differences in glutamate levels. 
+```{r patientgr, include=FALSE}
+resul_by_subgroup<-data_glu%>%
+  metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data = ., sm="SMD", method.smd = "Cohen", byvar=`patient group`)
+resul_by_subgroup
+```
+Analysis of disease status showed no significant effect for studies comparing FEP vs. chronic patients (Q=``r resul_by_subgroup$Q.b.random``, p=``r resul_by_subgroup$pval.Q.b.random``, see eFigure 3).
+```{r metabol, include=FALSE}
+resul_by_subgroup<-data_glu%>%
+  metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data=., sm="SMD", method.smd = "Cohen", byvar=metabolite)
+resul_by_subgroup
+
+```
+Analysis of results from different metabolite estimates (Glx vs. Glutamate) revealed no effect of subgroup (Q=``r resul_by_subgroup$Q.b.random``, p=``r resul_by_subgroup$pval.Q.b.random``).
+
+
+# Meta-Regression
+
+```{r metareg, include=F}
+resul<-data_glu%>%
+  metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data = ., sm="SMD", method.smd = "Cohen")
+resul_metareg_y<-metareg(resul, year)
+resul_metareg_a<-metareg(resul, age)
+
+
+```
+
+To control for possible further sources of variance, we conducted random-effects meta-regression. Publication year showed no significant moderating effect (QM=``r resul_metareg_y$QM``, p=``r resul_metareg_y$pval[1]``). Age of the investigated subjects did also show no significant moderating effect QM=``r resul_metareg_a$QM``, p=``r resul_metareg_a$pval[1]``).
+
+# Meta-analysis of variance ratio
+
+```{r meta_cvr, include=F}
+cvar_ratio<-data_glu%>%
+  escalc("CVR", n1i=SCZn, m1i=SCZmean, sd1i=SCZsd, n2i=HCn, m2i=HCmean, sd2i=HCsd, data=., slab=studylab, append = T)
+
+resul_cvar_ratio<-rma.uni(cvar_ratio, measure = "CVR", slab=data_glu$studylab)
+
+var_ratio<-data_glu%>%
+  escalc("VR", n1i=SCZn, m1i=SCZmean, sd1i=SCZsd, n2i=HCn, m2i=HCmean, sd2i=HCsd, data=., slab=studylab, append = T)
+
+resul_var_ratio<-rma.uni(var_ratio, measure = "VR", slab=data_glu$studylab)
+
+```
+
+Taking possible effects of mean differences into account, we calculated coefficient of variation ratio. The adjusted measure shows no significant difference (logCVR=``r resul_cvar_ratio$se`` [``r resul_cvar_ratio$ci.lb``;``r resul_cvar_ratio$ci.ub``]; z=``r resul_cvar_ratio$zval``; p=``r resul_cvar_ratio$pval``) across all studies. The calculation of a random-effects model for differences in variability ratio also revealed no significant effect in patients as compared to controls (logVR=``r resul_var_ratio$se`` [``r resul_var_ratio$ci.lb``;``r resul_var_ratio$ci.ub``]; z=``r resul_var_ratio$zval``; p=``r resul_var_ratio$pval``, see eFigure 9). 
+
+```{r meta_cvr_sub, include=F}
+cvar_ratio<-data_glu%>%
+  escalc("CVR", n1i=SCZn, m1i=SCZmean, sd1i=SCZsd, n2i=HCn, m2i=HCmean, sd2i=HCsd, data=., slab=studylab, append = T)
+
+resul_cvar_ratio<-rma.uni(cvar_ratio, measure = "CVR", slab=data_glu$studylab, mods = ~ medication_status)
+
+
+res.n<-rma.uni(cvar_ratio, measure = "CVR", slab=data_glu$studylab, subset=(medication_status=="naïve") )
+res.m<-rma.uni(cvar_ratio, measure = "CVR", slab=data_glu$studylab, subset=(medication_status=="medicated") )
+
+```
+
+Because we found a moderating effect of medication status in mean difference meta-analysis we repeated meta-analysis of CVR and VR with medication status as moderator variable. We found a moderating effect of medication status (Q=``r resul_cvar_ratio$QM``, ``r f_pvalue(resul_cvar_ratio$QMp)``, see Figure 2) due to lower CVR in the subgroup of studies with medication naïve patients as compared to controls (logCVR=``r res.n$beta[1]``; [``r res.n$ci.lb``;``r res.n$ci.ub``]; z=``r res.n$zval``; ``r f_pvalue(res.n$pval)``). In the group of studies with medicated patients there was an higher in CVR (logCVR=``r res.m$beta[1]``; [``r res.m$ci.lb``;``r res.m$ci.ub``]; z=``r res.m$zval``; ``r f_pvalue(res.m$pval)``).  
+
+```{r meta_vr_sub, include=F}
+var_ratio<-data_glu%>%
+  escalc("VR", n1i=SCZn, m1i=SCZmean, sd1i=SCZsd, n2i=HCn, m2i=HCmean, sd2i=HCsd, data=., slab=studylab, append = T)
+
+resul_var_ratio<-rma.uni(var_ratio, measure = "VR", slab=data_glu$studylab, mods = ~medication_status)
+
+res.m<-rma.uni(var_ratio, measure = "VR", slab=data_glu$studylab, subset=(medication_status=="medicated") )
+
+
+```
+
+We found a significant moderating effect of medication status on VR (Q=``r resul_var_ratio$QM``, ``r f_pvalue(resul_var_ratio$QMp)``, eFigure 11) i.e. we found higher VR in the subgroup of studies with medicated patients as compared to controls (logVR=``r res.m$beta[1]``; [``r res.m$ci.lb``;``r res.m$ci.ub``]; z=``r res.m$zval``; ``r f_pvalue(res.m$pval)``).
+We additionally tested for possible effects of age and publication year on CVR and found no association (see Supplement).
+
+
+# Further meta regression 
+
+According to a reviewers request discussing the comparability and adequate matching of the studies we additionally performed metaregression of sex, psychopathological manifestation and illness duration.
+
+## Investigation of comparibility
+
+
+```{r metareg Rev, include=F}
+
+
+#load data
+data_glu<-read_excel("data_glutamate_09_04_2020_for_Rev.xlsx", na = "NA")
+
+
+
+#create categorical variable to code matching according to sex
+data_glu<-data_glu%>%
+  rowwise()%>%mutate(
+    test_stat = chisq.test(matrix(c(Hcfemale, Hcmale, Szfemale, Szmale), byrow=T))$statistic,
+    p_val = chisq.test(matrix(c(Hcfemale, Hcmale, Szfemale, Szmale), byrow=T))$p.value
+    )%>%mutate(sex_matching=ifelse(p_val<0.05,"0", "1"))
+
+resul<-data_glu%>%
+  metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data = ., sm="SMD", method.smd = "Cohen")
+
+resul_sex<-data_glu%>%
+  metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data = ., sm="SMD", method.smd = "Cohen", byvar = sex_matching)
+
+forest(resul_sex)
+
+
+```
+We calculated $\chi^2$-tests for comparing distribution of sex in patients and controls. From a p-value cut-off of p=0.05 we derived a categorical variable whether patients and controls were matched according to sex. We then used it as a moderator variable in a meta-analysis of SMD and found a significant moderating effect (k=13, Q=``r resul_sex$Q.b.random``, p=``r resul_sex$pval.Q.b.random``). Interestingly we found significantly higher glutamate estimates in studies that showed matched genders (k=5, d=``r resul_sex$TE.random.w[1]``[``r resul_sex$lower.random.w[1]``; ``r resul_sex$upper.random.w[1]``], z=``r resul_sex$zval.random.w[1]``, ``r f_pvalue(resul_sex$pval.random.w[1])``). 
+
+Given that two studies reported Glu from medicated and unmedicated subjects, and through pooling the matchig of those studies was affected, we reran this analysis for the dataset with seperated subgroups given our primary focus of medication effects.
+
+```{r sepmedumed matching, include=FALSE}
+data_glu_sep_med_group<-read_excel("data_glutamate_sep_med_group_09_04_2020_Rev.xlsx")
+
+
+#create categorical variable to code matching according to sex
+data_glu_sep_med_group<-data_glu_sep_med_group%>%
+  rowwise()%>%mutate(
+    test_stat = chisq.test(matrix(c(Hcfemale, Hcmale, Szfemale, Szmale), byrow=T))$statistic,
+    p_val = chisq.test(matrix(c(Hcfemale, Hcmale, Szfemale, Szmale), byrow=T))$p.value
+    )%>%mutate(sex_matching=ifelse(p_val<0.05,"0", "1"))
+
+resul_sex<-data_glu_sep_med_group%>%
+  metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data = ., sm="SMD", method.smd = "Cohen", byvar = sex_matching)
+
+forest(resul_sex)
+
+```
+On this dataset the effect of matching was not significant (k=15, Q=``r resul_sex$Q.b.random``, p=``r resul_sex$pval.Q.b.random``). If matching plays a role there must be some evidence for effects of sex on glutamate estimates. Revisiting the literature indeed confirms evidence for sex differences (higher values in female subjects) in frontal cortical regions (ACC (Schubert 2012) and in MPFC (Marsman 2014)). Of note, this analysis was conducted post-hoc according to a reviewers request and not according to our protocol. However, finding an effect of matching when studies are pooled underlines the necessity of careful study design in such a heterogenous group. Additionalls this finding provides a further hint for a possible elevation of glutamate levels in patients as compared to controls.
+
+
+```{r age matching, include=FALSE}
+data_glu<-read_excel("data_glutamate_09_04_2020_for_Rev_age_double_check.xlsx")
+
+###
+# m1, m2: the sample means
+# s1, s2: the sample standard deviations
+# n1, n2: the same sizes
+# m0: the null value for the difference in means to be tested for. Default is 0. 
+# equal.variance: whether or not to assume equal variance. Default is FALSE. 
+t.test2 <- function(m1,m2,s1,s2,n1,n2,m0=0,equal.variance=FALSE)
+{
+    if( equal.variance==FALSE ) 
+    {
+        se <- sqrt( (s1^2/n1) + (s2^2/n2) )
+        # welch-satterthwaite df
+        df <- ( (s1^2/n1 + s2^2/n2)^2 )/( (s1^2/n1)^2/(n1-1) + (s2^2/n2)^2/(n2-1) )
+    } else
+    {
+        # pooled standard deviation, scaled by the sample sizes
+        se <- sqrt( (1/n1 + 1/n2) * ((n1-1)*s1^2 + (n2-1)*s2^2)/(n1+n2-2) ) 
+        df <- n1+n2-2
+    }      
+    t <- (m1-m2-m0)/se 
+    dat <- c(m1-m2, se, t, 2*pt(-abs(t),df))    
+    names(dat) <- c("Difference of means", "Std Error", "t", "p-value")
+    return(dat) 
+}
+
+
+#create categorical variable to code matching according to age
+data_glu<-data_glu%>%
+  rowwise()%>%mutate(SMD = t.test2(HC_age, SCZ_age, HC_age_sd, SCZ_age_sd, HCn, SCZn)[[1]],
+    test_stat = t.test2(HC_age, SCZ_age, HC_age_sd, SCZ_age_sd, HCn, SCZn)[[3]],
+    p_val = t.test2(HC_age, SCZ_age, HC_age_sd, SCZ_age_sd, HCn, SCZn)[[4]]
+    )%>%mutate(age_matching=ifelse(p_val<0.05,"0", "1"))
+
+##calculate Cohens d for continous covariate measurement
+data_glu<-data_glu%>%
+  rowwise()%>%mutate(
+    d=(t.test2(HC_age, SCZ_age, HC_age_sd, SCZ_age_sd, HCn, SCZn)[[1]]/sqrt(t.test2(HC_age, SCZ_age, HC_age_sd, SCZ_age_sd, HCn, SCZn)[[2]]))*sqrt((HCn+SCZn)/(HCn+SCZn-2)),
+    test_stat = t.test2(HC_age, SCZ_age, HC_age_sd, SCZ_age_sd, HCn, SCZn)[[3]],
+    p_val = t.test2(HC_age, SCZ_age, HC_age_sd, SCZ_age_sd, HCn, SCZn)[[4]]
+    )
+
+resul_age<-data_glu%>%filter(!is.na(age_matching))%>%
+  metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data = ., sm="SMD", method.smd = "Cohen", byvar = age_matching)
+
+forest(resul_age)
+
+resul<-data_glu%>%
+  metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data = ., sm="SMD", method.smd = "Cohen")
+
+resul_metareg_test_age<-metareg(resul, d)
+
+```
+We then wanted to investigate whether possible differences in matching for age possibly confounds our finding. We therefore extracted mean and sd for cases and controls (for one study we were not able to obtain sd for age, Maddock et al.). We then calculated two sample t-tests for mean differences in age of patients as compared to controls to build a categorical variable coding for matched and non-matched samples. No study showed a significant difference in age. We therefore additionally tested whether the Cohen's d as a continous estimate for deviance from age matching possibly confounds our effect. However, we did not observe any significant moderating effect of this variable (k=12, Q=``r resul_metareg_test_age$QM``, p=``r resul_metareg_test_age$pval[2]``).
+
+
+```{r symptom, include=FALSE}
+data_glu<-read_excel("data_glutamate_09_04_2020_for_Rev_age_double_check.xlsx")
+data_glu$PANSS_total_calculated_and_doc<-as.numeric(data_glu$PANSS_total_calculated_and_doc)
+data_glu$duration_of_illness<-as.numeric(data_glu$duration_of_illness)
+
+resul<-data_glu%>%
+  metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data = ., sm="SMD", method.smd = "Cohen")
+
+resul_metareg_doi<-metareg(resul, duration_of_illness)
+resul_metareg_Ptot<-metareg(resul, PANSS_total_calculated_and_doc) #calculated due to error in Smesny study, from documentation for Kegeles who only reported total
+resul_metareg_yoe<-metareg(resul, years_of_education)
+
+resul_yoe<-data_glu%>%
+  metacont(SCZn, SCZmean, SCZsd, HCn, HCmean, HCsd, studylab, data = ., sm="SMD", method.smd = "Cohen", byvar = comparability)
+```
+We found no significant moderating effect of duration of illness (k=9, Q=``r resul_metareg_doi$QM``, p=``r resul_metareg_doi$pval[2]``). Of note there was a lot of missing data points so that those results are based on k=9 studies. Moreover, there was heterogeneity in reporting see eTable 2. Total PANSS score did not show a  moderating effect (k=9, Q=``r resul_metareg_Ptot$QM``, p=``r resul_metareg_Ptot$pval[2]``). Of note, for the Study by Smesny et al. we had to correct an erronously calculated total score by hand from their Table 1. The authors accidentally summed up only positive and negative score. 
+
+According to our evaluation of study quality, we outline years of education as a comparability measure. Therefore, we created a regressor for comparability based on availability of years of education as quality marker. Additionally, we tested for effect of years of education both as continous variable (k=7 studies, Q=``r resul_metareg_yoe$QM``, p=``r resul_metareg_yoe$pval[2]``) and as categorical variable (absence or presence of reporting: k=13, Q=``r resul_yoe$Q.b.random``, p=``r resul_yoe$pval.Q.b.random``). Both approaches did not provide evidence for differences between studies based on this comparability marker.
+
+
