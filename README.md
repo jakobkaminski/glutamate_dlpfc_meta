@@ -1,6 +1,10 @@
 # Glutamate in dorsolateral prefrontal cortex
 This is the code for the analysis and for creating the plots in the publication.
 
+Published:September 08, 2020
+
+DOI:https://doi.org/10.1016/j.biopsych.2020.09.001
+
 ## Further info on system and software version
 
 
