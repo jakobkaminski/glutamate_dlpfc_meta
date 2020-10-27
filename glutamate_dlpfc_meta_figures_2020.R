@@ -7,7 +7,7 @@ library(meta)
 library(metafor)
 
 
-##First for some papers we needed to combine groups
+##First, for some papers we needed to combine groups
 ###We did this according to this reccomnedation for combining groups for meta-analysis
 ##https://handbook-5-1.cochrane.org/chapter_7/7_7_3_8_combining_groups.htm
 
