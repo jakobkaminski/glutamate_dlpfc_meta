@@ -23,3 +23,20 @@ svn rev        76424
 language       R                           
 version.string R version 3.6.0 (2019-04-26)
 nickname       Planting of a Tree    
+
+
+key data file for data capture: data_glutamate_09_04_2020.xlsx
+labels:
+
+HCn = number of controols
+
+HCmean = mean of controls
+
+HCsd = standard deviation of controls
+
+
+SCZn = number of cases
+
+SCZmean = mean of cases
+
+SCZsd = standard deviation of cases
