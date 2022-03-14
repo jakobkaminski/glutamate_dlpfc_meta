@@ -25,6 +25,8 @@ version.string R version 3.6.0 (2019-04-26)
 nickname       Planting of a Tree    
 
 
+### Info for data file
+
 key data file for data capture: data_glutamate_09_04_2020.xlsx
 labels:
 
